@@ -44,6 +44,7 @@ create trigger on_auth_user_created
 create table if not exists public.stories (
   id              uuid primary key default uuid_generate_v4(),
   author_id       uuid references public.profiles(id) on delete set null,
+  author_name     text,                     -- denormalized for display
   is_anonymous    boolean default true,
   title           text not null,
   body            text not null,
@@ -81,6 +82,7 @@ create table if not exists public.replies (
   id           uuid primary key default uuid_generate_v4(),
   story_id     uuid not null references public.stories(id) on delete cascade,
   author_id    uuid references public.profiles(id) on delete set null,
+  author_name  text,                        -- denormalized for display
   is_anonymous boolean default true,
   body         text not null,
   emoji        text default '💬',

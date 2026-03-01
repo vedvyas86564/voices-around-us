@@ -1075,6 +1075,7 @@ async function submitReply() {
     author_id: currentUser.id,
     body,
     is_anonymous: isAnon,
+    author_name: isAnon ? null : (currentProfile?.display_name || null),
     emoji: currentProfile?.emoji || '💬'
   });
   if (error) { showToast('Could not post reply ⚠️'); return; }
