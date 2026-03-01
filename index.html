@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voices Around Us — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ════════════════════════════════════════════
+   DESIGN TOKENS
+════════════════════════════════════════════ */
+:root {
+  --sand:#F2EDE4; --sand-mid:#E8E0D4; --sand-dark:#D9D0C3;
+  --parchment:#FAF8F3; --ink:#1A1714; --ink-soft:#3D3830;
+  --muted:#9B9184; --amber:#C86B2A; --amber-light:#F0DBC8;
+  --amber-glow:rgba(200,107,42,.13);
+  --teal:#3A7D6E; --violet:#6B5FA6; --gold:#B8872A; --green:#4E8A5F;
+  --danger:#C0392B;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Outfit',sans-serif;
+  background:#D8D0C4;
+  background-image:radial-gradient(ellipse at 20% 50%,#DDD4C5 0%,transparent 60%),
+                   radial-gradient(ellipse at 80% 20%,#CCC4B8 0%,transparent 50%);
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  padding:32px 20px; gap:40px; flex-wrap:wrap;
+}
+
+/* ── Phone Shell ── */
+.phone-body{
+  width:393px; height:852px; background:#1A1714;
+  border-radius:48px; padding:10px; flex-shrink:0;
+  box-shadow:0 60px 120px rgba(0,0,0,.55),0 20px 40px rgba(0,0,0,.3),
+             0 0 0 1px rgba(255,255,255,.09),inset 0 1px 0 rgba(255,255,255,.12);
+  position:relative;
+}
+.phone-body::before{
+  content:'';position:absolute;left:-3px;top:120px;
+  width:3px;height:60px;background:#2A2520;border-radius:3px 0 0 3px;
+  box-shadow:0 74px 0 #2A2520,0 144px 0 #2A2520;
+}
+.phone-body::after{
+  content:'';position:absolute;right:-3px;top:160px;
+  width:3px;height:80px;background:#2A2520;border-radius:0 3px 3px 0;
+}
+.phone-screen{
+  width:100%;height:100%;border-radius:40px;overflow:hidden;
+  position:relative;background:var(--parchment);
+}
+.dynamic-island{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  width:126px;height:36px;background:#1A1714;border-radius:20px;
+  z-index:200;pointer-events:none;
+}
+
+/* ── Screen system ── */
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  background:var(--parchment);opacity:0;pointer-events:none;
+  transform:translateY(10px);
+  transition:opacity .26s cubic-bezier(.4,0,.2,1),transform .26s cubic-bezier(.4,0,.2,1);
+}
+.screen.active{opacity:1;pointer-events:all;transform:translateY(0);}
+
+/* ── Status bar ── */
+.status{
+  height:54px;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 28px 8px;font-size:13px;font-weight:600;letter-spacing:-.2px;
+  color:var(--ink);flex-shrink:0;position:relative;z-index:10;
+}
+.status-r{display:flex;gap:5px;align-items:center;font-size:12px;}
+
+/* ── Nav bar ── */
+.nav{
+  height:84px;background:rgba(250,248,243,.96);backdrop-filter:blur(24px);
+  border-top:1px solid var(--sand-dark);display:flex;
+  padding:10px 4px 0;flex-shrink:0;position:relative;z-index:50;
+}
+.nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;color:var(--muted);transition:color .2s;
+  position:relative;padding:2px 0;user-select:none;
+}
+.nav-item.on{color:var(--amber);}
+.nav-dot{
+  position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--amber);
+  opacity:0;transition:opacity .2s;
+}
+.nav-item.on .nav-dot{opacity:1;}
+.nav-bubble{
+  width:46px;height:30px;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;transition:background .2s;
+}
+.nav-item.on .nav-bubble{background:var(--amber-glow);}
+.nav-ico{font-size:19px;line-height:1;}
+.nav-lbl{font-size:10px;letter-spacing:.3px;font-weight:500;}
+
+/* ── Shared ── */
+.chip{
+  white-space:nowrap;padding:8px 16px;border-radius:100px;font-size:13px;
+  font-weight:500;cursor:pointer;transition:all .2s;flex-shrink:0;
+  border:1.5px solid var(--sand-dark);background:white;color:var(--ink-soft);
+  box-shadow:0 2px 6px rgba(0,0,0,.04);user-select:none;
+}
+.chip.on{background:var(--amber);border-color:var(--amber);color:white;box-shadow:0 4px 14px rgba(200,107,42,.32);}
+
+.tag-pill{padding:5px 11px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.2px;}
+.tp-amber{background:var(--amber-light);color:var(--amber);}
+.tp-teal{background:rgba(58,125,110,.13);color:var(--teal);}
+.tp-violet{background:rgba(107,95,166,.13);color:var(--violet);}
+.tp-gold{background:rgba(184,135,42,.13);color:var(--gold);}
+.tp-green{background:rgba(78,138,95,.13);color:var(--green);}
+
+.back-btn{
+  display:flex;align-items:center;gap:7px;color:var(--amber);
+  font-size:15px;font-weight:500;cursor:pointer;margin-bottom:18px;user-select:none;
+}
+.form-label{
+  display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--muted);font-weight:600;margin-bottom:9px;
+}
+.section-lbl{
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--muted);font-weight:600;margin-bottom:14px;display:block;
+}
+
+/* ── Skeleton loader ── */
+.skel{
+  background:linear-gradient(90deg,var(--sand-dark) 25%,var(--sand-mid) 50%,var(--sand-dark) 75%);
+  background-size:400% 100%;
+  animation:shimmer 1.4s infinite;
+  border-radius:8px;
+}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skel-line{height:14px;margin-bottom:8px;}
+.skel-line.sm{height:10px;width:60%;}
+.skel-line.lg{height:18px;}
+.skel-card{background:white;border-radius:20px;padding:17px 18px;border:1px solid var(--sand-dark);margin-bottom:12px;}
+
+/* ── Empty state ── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 24px;text-align:center;gap:10px;
+}
+.empty-ico{font-size:40px;}
+.empty-ttl{font-family:'Lora',serif;font-size:18px;color:var(--ink);font-weight:500;}
+.empty-sub{font-size:13px;color:var(--muted);line-height:1.5;}
+
+/* ── Error banner ── */
+.err-banner{
+  background:#FEF0EE;border:1px solid #F5C6C0;border-radius:12px;
+  padding:10px 14px;font-size:13px;color:var(--danger);margin:12px 0;
+}
+
+/* ════════════════════════════════════════════
+   AUTH SCREEN
+════════════════════════════════════════════ */
+#s-auth{background:linear-gradient(160deg,var(--sand) 0%,var(--parchment) 100%);}
+.auth-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 32px;}
+.auth-logo{font-size:52px;margin-bottom:16px;}
+.auth-name{font-family:'Lora',serif;font-size:28px;color:var(--ink);font-weight:500;text-align:center;margin-bottom:6px;}
+.auth-tag{font-size:14px;color:var(--muted);text-align:center;margin-bottom:44px;line-height:1.5;}
+.auth-input{
+  width:100%;background:white;border:1.5px solid var(--sand-dark);
+  border-radius:14px;padding:14px 16px;font-family:'Outfit',sans-serif;
+  font-size:15px;color:var(--ink);outline:none;margin-bottom:12px;
+  transition:border-color .2s;
+}
+.auth-input:focus{border-color:var(--amber);}
+.auth-input::placeholder{color:#C4BAB0;}
+.auth-cta{
+  width:100%;background:var(--amber);color:white;border:none;
+  border-radius:16px;padding:16px;font-size:16px;font-weight:600;
+  cursor:pointer;font-family:'Outfit',sans-serif;
+  box-shadow:0 6px 22px rgba(200,107,42,.38);margin-bottom:12px;
+  transition:opacity .2s;
+}
+.auth-cta:hover{opacity:.92;}
+.auth-cta.secondary{background:transparent;color:var(--amber);box-shadow:none;border:1.5px solid var(--amber);}
+.auth-divider{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 12px;}
+.auth-anon{
+  font-size:13px;color:var(--muted);text-align:center;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;
+}
+
+/* ════════════════════════════════════════════
+   MAP SCREEN
+════════════════════════════════════════════ */
+#s-map{background:var(--parchment);}
+.map-wrap{flex:1;position:relative;overflow:hidden;background:#EAE3D8;}
+.map-canvas{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(168,158,142,.25) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(168,158,142,.25) 1px,transparent 1px);
+  background-size:30px 30px;
+}
+.map-svg{position:absolute;inset:0;width:100%;height:100%;}
+.map-top{
+  position:absolute;top:0;left:0;right:0;padding:10px 16px 20px;
+  background:linear-gradient(to bottom,rgba(250,248,243,1) 0%,rgba(250,248,243,.88) 65%,transparent 100%);
+  z-index:20;
+}
+.map-search{
+  background:white;border-radius:16px;border:1px solid var(--sand-dark);
+  padding:13px 16px;display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 16px rgba(0,0,0,.06);font-size:14px;color:var(--muted);
+}
+.map-chips{
+  position:absolute;bottom:0;left:0;right:0;padding:14px 16px 16px;
+  background:linear-gradient(to top,rgba(234,227,216,.96) 55%,transparent 100%);
+  display:flex;gap:8px;overflow-x:auto;z-index:20;
+}
+.map-chips::-webkit-scrollbar{display:none;}
+.fab{
+  position:absolute;right:18px;bottom:68px;width:58px;height:58px;
+  background:var(--amber);border-radius:18px;display:flex;align-items:center;
+  justify-content:center;font-size:26px;color:white;
+  box-shadow:0 8px 24px rgba(200,107,42,.42);cursor:pointer;z-index:30;
+  transition:transform .15s;user-select:none;
+}
+.fab:active{transform:scale(.95);}
+.pin{position:absolute;transform:translate(-50%,-100%);cursor:pointer;z-index:15;transition:filter .2s,transform .15s;}
+.pin:hover{transform:translate(-50%,-100%) scale(1.07);filter:drop-shadow(0 6px 12px rgba(0,0,0,.22));}
+.pin-card{
+  background:white;border-radius:14px;padding:9px 13px;max-width:136px;
+  box-shadow:0 4px 20px rgba(0,0,0,.1);border:1px solid rgba(255,255,255,.9);
+}
+.pin-cat{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.pin-snip{font-size:11.5px;color:var(--ink);line-height:1.4;font-style:italic;font-family:'Lora',serif;}
+.pin-stem{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;margin:0 auto -1px;}
+.pin-dot{width:14px;height:14px;border-radius:50%;margin:0 auto;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.map-loading{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(234,227,216,.7);backdrop-filter:blur(4px);z-index:40;
+}
+.spinner{
+  width:32px;height:32px;border:3px solid var(--sand-dark);
+  border-top-color:var(--amber);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ════════════════════════════════════════════
+   STORY VIEW
+════════════════════════════════════════════ */
+#s-story{background:var(--parchment);}
+.story-scroll{flex:1;overflow-y:auto;}
+.story-scroll::-webkit-scrollbar{display:none;}
+.story-hero-bg{
+  background:linear-gradient(160deg,var(--sand) 0%,var(--sand-mid) 100%);
+  padding:14px 24px 26px;border-bottom:1px solid var(--sand-dark);flex-shrink:0;
+}
+.story-loc-row{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;
+  text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
+  font-weight:600;margin-bottom:11px;
+}
+.story-headline{font-family:'Lora',serif;font-size:21px;line-height:1.25;color:var(--ink);font-weight:500;margin-bottom:14px;}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;}
+.story-body-pad{padding:22px 24px;}
+.author-row{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.avatar-circle{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.audio-bar{
+  background:var(--sand);border:1px solid var(--sand-dark);border-radius:18px;
+  padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:22px;
+}
+.play-circle{
+  width:46px;height:46px;border-radius:50%;background:var(--amber);
+  display:flex;align-items:center;justify-content:center;font-size:16px;color:white;
+  flex-shrink:0;cursor:pointer;box-shadow:0 4px 14px rgba(200,107,42,.35);
+  transition:transform .15s;user-select:none;
+}
+.play-circle:active{transform:scale(.9);}
+.waveform{flex:1;height:38px;display:flex;align-items:center;gap:2px;}
+.wbar{flex:1;border-radius:2px;transition:background .1s;}
+.wbar.lit{background:var(--amber);}
+.wbar.dim{background:var(--sand-dark);}
+.dur-lbl{font-size:12px;color:var(--muted);font-weight:500;}
+.story-prose{font-family:'Lora',serif;font-size:16px;line-height:1.82;color:var(--ink-soft);font-style:italic;}
+.story-prose p{margin-bottom:18px;}
+.story-prose p:last-child{margin-bottom:0;}
+.divider{height:1px;background:var(--sand-dark);margin:22px 0;}
+.react-row{display:flex;gap:8px;flex-wrap:wrap;}
+.react-btn{
+  display:flex;align-items:center;gap:6px;background:var(--sand);border-radius:100px;
+  padding:9px 14px;font-size:13px;font-weight:500;color:var(--ink-soft);cursor:pointer;
+  border:1px solid var(--sand-dark);transition:all .2s;user-select:none;
+}
+.react-btn:hover{border-color:var(--amber);color:var(--amber);}
+.react-btn.resonated{background:var(--amber-light);border-color:var(--amber);color:var(--amber);}
+
+/* Replies */
+.replies-section{padding:0 24px 24px;}
+.reply-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.reply-card{
+  background:var(--sand);border-radius:14px;padding:12px 14px;
+  border:1px solid var(--sand-dark);
+}
+.reply-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.reply-av{width:28px;height:28px;border-radius:50%;background:var(--amber-light);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.reply-author{font-size:12px;font-weight:600;color:var(--ink);}
+.reply-date{font-size:11px;color:var(--muted);margin-left:auto;}
+.reply-body{font-family:'Lora',serif;font-size:14px;color:var(--ink-soft);font-style:italic;line-height:1.6;}
+.reply-input-wrap{
+  background:white;border:1.5px solid var(--sand-dark);border-radius:14px;
+  padding:12px 14px;display:flex;gap:10px;align-items:flex-end;
+  transition:border-color .2s;
+}
+.reply-input-wrap:focus-within{border-color:var(--amber);}
+.reply-ta{
+  flex:1;background:transparent;border:none;outline:none;resize:none;
+  font-family:'Lora',serif;font-size:14px;color:var(--ink);font-style:italic;
+  line-height:1.6;height:44px;
+}
+.reply-ta::placeholder{color:#C4BAB0;font-style:italic;}
+.reply-send{
+  width:34px;height:34px;background:var(--amber);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-size:16px;cursor:pointer;flex-shrink:0;
+  transition:opacity .2s;user-select:none;
+}
+.reply-send:hover{opacity:.85;}
+
+/* ════════════════════════════════════════════
+   SUBMIT SCREEN
+════════════════════════════════════════════ */
+#s-submit{background:var(--parchment);}
+.submit-hdr{padding:14px 24px 20px;border-bottom:1px solid var(--sand-dark);flex-shrink:0;}
+.submit-ttl{font-family:'Lora',serif;font-size:23px;color:var(--ink);font-weight:500;margin-bottom:3px;}
+.submit-sub{font-size:13.5px;color:var(--muted);}
+.submit-scroll{flex:1;overflow-y:auto;padding:20px 24px;}
+.submit-scroll::-webkit-scrollbar{display:none;}
+.form-group{margin-bottom:20px;}
+.loc-box{
+  background:var(--sand);border-radius:14px;padding:13px 16px;
+  display:flex;align-items:center;gap:10px;border:1.5px solid var(--sand-dark);
+  font-size:14px;color:var(--ink);
+}
+.loc-change{margin-left:auto;font-size:13px;color:var(--amber);font-weight:600;cursor:pointer;}
+.type-toggle{display:flex;background:var(--sand);border-radius:14px;padding:4px;border:1px solid var(--sand-dark);gap:4px;}
+.type-opt{flex:1;text-align:center;padding:10px;border-radius:10px;font-size:14px;cursor:pointer;color:var(--muted);transition:all .2s;user-select:none;}
+.type-opt.on{background:white;color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.07);font-weight:500;}
+.story-ta{
+  width:100%;background:var(--sand);border:1.5px solid var(--sand-dark);
+  border-radius:14px;padding:14px 16px;font-family:'Lora',serif;
+  font-size:15px;color:var(--ink);resize:none;height:118px;outline:none;
+  line-height:1.7;font-style:italic;transition:border-color .2s,background .2s;
+}
+.story-ta::placeholder{color:#C4BAB0;font-style:italic;}
+.story-ta:focus{border-color:var(--amber);background:white;}
+.char-row{display:flex;justify-content:flex-end;margin-top:5px;}
+.char-cnt{font-size:11px;color:var(--muted);}
+.char-cnt.warn{color:var(--amber);}
+.tag-grid{display:flex;flex-wrap:wrap;gap:8px;}
+.tag-sel{
+  background:var(--sand);border:1.5px solid var(--sand-dark);border-radius:100px;
+  padding:7px 14px;font-size:12px;font-weight:500;color:var(--muted);
+  cursor:pointer;transition:all .2s;user-select:none;
+}
+.tag-sel.on{background:var(--amber-light);border-color:var(--amber);color:var(--amber);}
+.anon-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--sand);border-radius:14px;padding:14px 16px;border:1px solid var(--sand-dark);
+}
+.anon-lbl{font-size:14px;color:var(--ink);font-weight:500;}
+.anon-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.sw-track{width:48px;height:28px;border-radius:14px;position:relative;cursor:pointer;transition:background .25s;flex-shrink:0;}
+.sw-track.on{background:var(--amber);}
+.sw-track.off{background:var(--sand-dark);}
+.sw-thumb{position:absolute;top:3px;width:22px;height:22px;border-radius:50%;background:white;box-shadow:0 1px 5px rgba(0,0,0,.18);transition:left .25s cubic-bezier(.4,0,.2,1);}
+.sw-track.on .sw-thumb{left:23px;}
+.sw-track.off .sw-thumb{left:3px;}
+.ai-suggest{
+  background:linear-gradient(135deg,rgba(200,107,42,.08),rgba(107,95,166,.08));
+  border:1.5px solid rgba(200,107,42,.2);border-radius:14px;
+  padding:12px 14px;display:flex;gap:10px;align-items:flex-start;margin-top:8px;
+}
+.ai-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--amber);font-weight:700;margin-bottom:3px;}
+.submit-foot{padding:0 24px 16px;flex-shrink:0;}
+.submit-cta{
+  width:100%;background:var(--amber);color:white;border:none;
+  border-radius:16px;padding:17px;font-size:16px;font-weight:600;cursor:pointer;
+  font-family:'Outfit',sans-serif;box-shadow:0 6px 22px rgba(200,107,42,.38);
+  transition:background .3s,transform .15s;letter-spacing:-.2px;
+}
+.submit-cta:active{transform:scale(.98);}
+.submit-cta.done{background:var(--green);box-shadow:0 6px 22px rgba(78,138,95,.35);}
+.submit-cta:disabled{opacity:.6;cursor:not-allowed;}
+
+/* ════════════════════════════════════════════
+   EXPLORE
+════════════════════════════════════════════ */
+#s-explore{background:var(--parchment);}
+.explore-hdr{padding:14px 24px 12px;flex-shrink:0;}
+.explore-ttl{font-family:'Lora',serif;font-size:28px;color:var(--ink);font-weight:500;margin-bottom:2px;}
+.explore-sub{font-size:14px;color:var(--muted);}
+.explore-chips{padding:0 20px 12px;display:flex;gap:8px;overflow-x:auto;flex-shrink:0;}
+.explore-chips::-webkit-scrollbar{display:none;}
+.story-list{flex:1;overflow-y:auto;padding:0 20px 16px;}
+.story-list::-webkit-scrollbar{display:none;}
+.s-card{
+  background:white;border-radius:20px;padding:17px 18px;border:1px solid var(--sand-dark);
+  cursor:pointer;transition:all .22s;box-shadow:0 2px 10px rgba(0,0,0,.04);margin-bottom:12px;
+}
+.s-card:hover{border-color:var(--amber);transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,0,0,.09);}
+.card-loc{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.card-ttl{font-family:'Lora',serif;font-size:17px;color:var(--ink);margin-bottom:8px;line-height:1.28;font-weight:500;}
+.card-prev{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-foot{display:flex;justify-content:space-between;align-items:center;}
+.card-tags{display:flex;gap:5px;}
+.card-time{font-size:11px;color:var(--muted);}
+
+/* ════════════════════════════════════════════
+   PROFILE
+════════════════════════════════════════════ */
+#s-profile{background:var(--parchment);}
+.profile-scroll{flex:1;overflow-y:auto;}
+.profile-scroll::-webkit-scrollbar{display:none;}
+.profile-hero{
+  background:linear-gradient(160deg,var(--sand) 0%,var(--sand-mid) 100%);
+  padding:16px 24px 28px;border-bottom:1px solid var(--sand-dark);text-align:center;
+}
+.profile-av{
+  width:86px;height:86px;border-radius:50%;background:var(--amber-light);
+  display:flex;align-items:center;justify-content:center;font-size:38px;
+  margin:0 auto 14px;border:3px solid var(--amber);
+  box-shadow:0 6px 22px rgba(200,107,42,.22);
+}
+.profile-name{font-family:'Lora',serif;font-size:24px;color:var(--ink);font-weight:500;}
+.profile-sub{font-size:13px;color:var(--muted);margin-top:3px;}
+.stats-bar{display:flex;margin-top:22px;border-top:1px solid var(--sand-dark);padding-top:22px;}
+.stat-cell{flex:1;text-align:center;}
+.stat-cell+.stat-cell{border-left:1px solid var(--sand-dark);}
+.stat-n{font-family:'Lora',serif;font-size:26px;color:var(--ink);font-weight:500;}
+.stat-l{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:2px;font-weight:600;}
+.psec{padding:22px 24px 0;}
+.my-card{
+  background:var(--sand);border-radius:14px;padding:14px 16px;
+  border:1px solid var(--sand-dark);margin-bottom:10px;cursor:pointer;
+  transition:border-color .2s,transform .15s;
+}
+.my-card:hover{border-color:var(--amber);transform:translateY(-1px);}
+.my-card-ttl{font-family:'Lora',serif;font-size:16px;color:var(--ink);margin-bottom:4px;font-weight:500;}
+.my-card-loc{font-size:12px;color:var(--muted);}
+.sign-out-btn{
+  margin:16px 24px 24px;width:calc(100% - 48px);
+  background:transparent;border:1.5px solid var(--sand-dark);
+  border-radius:12px;padding:12px;font-size:14px;color:var(--muted);
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+}
+.sign-out-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+/* ── Sidebar ── */
+.sidebar{display:flex;flex-direction:column;gap:8px;width:190px;}
+.sidebar-title{font-family:'Lora',serif;font-size:20px;color:var(--ink);margin-bottom:4px;font-weight:500;}
+.sidebar-sub{font-size:12px;color:#9B9184;margin-bottom:20px;text-transform:uppercase;letter-spacing:.8px;font-weight:500;}
+.sb-btn{
+  background:rgba(250,248,243,.8);border:1.5px solid #D9D0C3;border-radius:12px;
+  padding:11px 14px;font-size:13px;font-family:'Outfit',sans-serif;
+  color:var(--ink);cursor:pointer;transition:all .2s;
+  text-align:left;display:flex;align-items:center;gap:8px;font-weight:400;
+  backdrop-filter:blur(8px);
+}
+.sb-btn:hover{border-color:var(--amber);color:var(--amber);}
+.sb-btn.cur{background:var(--amber);color:white;border-color:var(--amber);font-weight:500;box-shadow:0 4px 14px rgba(200,107,42,.3);}
+.sb-status{
+  margin-top:16px;background:rgba(250,248,243,.8);border:1.5px solid var(--sand-dark);
+  border-radius:12px;padding:12px 14px;font-size:12px;color:var(--muted);
+}
+.sb-status .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sand-dark);margin-right:6px;}
+.sb-status .dot.live{background:#4CAF50;box-shadow:0 0 0 3px rgba(76,175,80,.2);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(76,175,80,.2)}50%{box-shadow:0 0 0 6px rgba(76,175,80,.1)}}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:40px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:white;padding:12px 24px;border-radius:100px;
+  font-size:13px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,.25);
+  opacity:0;transition:opacity .3s,transform .3s;
+  pointer-events:none;z-index:9999;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<div class="sidebar">
+  <div class="sidebar-title">Voices Around Us</div>
+  <div class="sidebar-sub">Live · Supabase</div>
+  <button class="sb-btn cur" onclick="goScreen('map',this)"><span>🗺</span> Map</button>
+  <button class="sb-btn" onclick="goScreen('explore',this)"><span>✦</span> Explore</button>
+  <button class="sb-btn" onclick="goScreen('submit',this)"><span>✍️</span> Share Story</button>
+  <button class="sb-btn" onclick="goScreen('profile',this)"><span>◉</span> Profile</button>
+  <button class="sb-btn" onclick="goScreen('auth',this)"><span>🔑</span> Auth Screen</button>
+  <div class="sb-status" id="sb-status">
+    <span class="dot" id="db-dot"></span>
+    <span id="db-label">Connecting…</span>
+  </div>
+</div>
+
+<!-- ── Phone ── -->
+<div class="phone-body">
+  <div class="phone-screen">
+    <div class="dynamic-island"></div>
+
+    <!-- ══ AUTH ══ -->
+    <div class="screen active" id="s-auth">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="auth-wrap">
+        <div class="auth-logo">🗺</div>
+        <div class="auth-name">Voices Around Us</div>
+        <div class="auth-tag">Share the stories<br>that live in your spaces.</div>
+        <div id="auth-err"></div>
+        <input class="auth-input" id="auth-email" type="email" placeholder="UCLA email address">
+        <input class="auth-input" id="auth-pass" type="password" placeholder="Password">
+        <button class="auth-cta" id="auth-signin-btn" onclick="signIn()">Sign In</button>
+        <div class="auth-divider">— or —</div>
+        <button class="auth-cta secondary" onclick="signUp()">Create Account</button>
+        <div style="height:16px"></div>
+        <div class="auth-anon" onclick="continueAnon()">Continue without account →</div>
+      </div>
+    </div>
+
+    <!-- ══ MAP ══ -->
+    <div class="screen" id="s-map">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="map-wrap">
+        <div class="map-canvas"></div>
+        <svg class="map-svg" viewBox="0 0 373 638" preserveAspectRatio="none">
+          <rect x="0" y="195" width="373" height="30" fill="#DDD6C5" stroke="#C9C1B0" stroke-width=".8"/>
+          <rect x="0" y="360" width="373" height="24" fill="#DDD6C5" stroke="#C9C1B0" stroke-width=".8"/>
+          <rect x="0" y="490" width="373" height="18" fill="#E2DDD0" stroke="#CCC5B5" stroke-width=".5"/>
+          <rect x="0" y="115" width="373" height="18" fill="#E2DDD0" stroke="#CCC5B5" stroke-width=".5"/>
+          <rect x="90" y="0" width="20" height="700" fill="#E2DDD0" stroke="#CCC5B5" stroke-width=".5"/>
+          <rect x="205" y="0" width="26" height="700" fill="#DDD6C5" stroke="#C9C1B0" stroke-width=".8"/>
+          <rect x="310" y="0" width="18" height="700" fill="#E2DDD0" stroke="#CCC5B5" stroke-width=".5"/>
+          <rect x="8" y="8" width="76" height="100" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="115" y="8" width="84" height="100" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="232" y="8" width="72" height="100" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="334" y="8" width="31" height="100" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="8" y="135" width="76" height="52" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="115" y="135" width="84" height="52" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="232" y="135" width="72" height="52" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="334" y="135" width="31" height="52" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="8" y="233" width="76" height="118" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="115" y="233" width="84" height="118" rx="6" fill="#C5D9B0" stroke="#AECA98" stroke-width=".5"/>
+          <text x="157" y="296" text-anchor="middle" font-size="9" fill="#7A9A60" font-family="Outfit" font-weight="600">PARK</text>
+          <rect x="232" y="233" width="72" height="118" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="334" y="233" width="31" height="118" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="8" y="390" width="76" height="90" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="115" y="390" width="84" height="90" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="232" y="390" width="72" height="90" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <rect x="334" y="390" width="31" height="90" rx="5" fill="#D2CABC" stroke="#BEB6A8" stroke-width=".5"/>
+          <text x="186" y="214" text-anchor="middle" font-size="8" fill="#9A9280" font-family="Outfit" font-weight="600">BRUIN WALK</text>
+          <text x="186" y="374" text-anchor="middle" font-size="8" fill="#9A9280" font-family="Outfit" font-weight="600">CHARLES E. YOUNG DR.</text>
+        </svg>
+        <div class="map-top">
+          <div class="map-search"><span style="font-size:16px">⌕</span><span style="flex:1;color:var(--muted);font-size:14px">Search stories near you…</span></div>
+        </div>
+        <div id="map-pins"></div>
+        <div class="map-chips" id="map-chips">
+          <div class="chip on" onclick="mapFilter('All',this)">All</div>
+          <div class="chip" onclick="mapFilter('Migration',this)">Migration</div>
+          <div class="chip" onclick="mapFilter('First-Gen',this)">First-Gen</div>
+          <div class="chip" onclick="mapFilter('Language',this)">Language</div>
+          <div class="chip" onclick="mapFilter('Belonging',this)">Belonging</div>
+          <div class="chip" onclick="mapFilter('Culture',this)">Culture</div>
+          <div class="chip" onclick="mapFilter('Disability',this)">Disability</div>
+        </div>
+        <div class="fab" onclick="goScreen('submit',null)">+</div>
+        <div class="map-loading" id="map-loading"><div class="spinner"></div></div>
+      </div>
+      <div class="nav">
+        <div class="nav-item on" onclick="goScreen('map',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">🗺</span></div><span class="nav-lbl">Map</span></div>
+        <div class="nav-item" onclick="goScreen('explore',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">✦</span></div><span class="nav-lbl">Explore</span></div>
+        <div class="nav-item" onclick="goScreen('submit',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">⊕</span></div><span class="nav-lbl">Share</span></div>
+        <div class="nav-item" onclick="goScreen('profile',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">◉</span></div><span class="nav-lbl">Me</span></div>
+      </div>
+    </div>
+
+    <!-- ══ STORY VIEW ══ -->
+    <div class="screen" id="s-story">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="story-scroll">
+        <div class="story-hero-bg">
+          <div class="back-btn" onclick="goBack()">← Back</div>
+          <div class="story-loc-row"><span>📍</span><span id="sv-loc">—</span></div>
+          <div class="story-headline" id="sv-title">—</div>
+          <div class="tag-row" id="sv-tags"></div>
+        </div>
+        <div class="story-body-pad">
+          <div class="author-row">
+            <div class="avatar-circle" id="sv-av" style="background:var(--amber-light)">🌱</div>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--ink)" id="sv-author">—</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:1px" id="sv-date">—</div>
+            </div>
+            <div style="margin-left:auto;font-size:13px;color:var(--muted)" id="sv-resonates"></div>
+          </div>
+          <div class="audio-bar" id="sv-audio" style="display:none">
+            <div class="play-circle" id="play-btn" onclick="togglePlay()">▶</div>
+            <div class="waveform" id="waveform"></div>
+            <span class="dur-lbl">0:47</span>
+          </div>
+          <div class="story-prose" id="sv-body"></div>
+          <div class="divider"></div>
+          <div class="react-row">
+            <div class="react-btn" id="resonate-btn" onclick="toggleResonate()">🫂 <span id="resonate-lbl">Resonate</span></div>
+            <div class="react-btn" onclick="showToast('Saved 🔖')">🔖 Save</div>
+          </div>
+        </div>
+        <div class="divider" style="margin:0 24px"></div>
+        <div class="replies-section">
+          <span class="section-lbl">Replies (<span id="reply-count">0</span>)</span>
+          <div class="reply-list" id="reply-list"></div>
+          <div id="reply-input-area">
+            <div class="reply-input-wrap">
+              <textarea class="reply-ta" id="reply-ta" placeholder="Share your reflection…" rows="2"></textarea>
+              <div class="reply-send" onclick="submitReply()">↑</div>
+            </div>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+              <div class="sw-track on" id="reply-anon-sw" onclick="toggleSw('reply-anon-sw')" style="transform:scale(.85);transform-origin:left"><div class="sw-thumb"></div></div>
+              <span style="font-size:12px;color:var(--muted)">Reply anonymously</span>
+            </div>
+          </div>
+          <div id="reply-auth-msg" style="display:none;font-size:13px;color:var(--muted);text-align:center;padding:12px 0">
+            <span onclick="goScreen('auth',null)" style="color:var(--amber);cursor:pointer;font-weight:500">Sign in</span> to leave a reply
+          </div>
+        </div>
+      </div>
+      <div class="nav">
+        <div class="nav-item" onclick="goScreen('map',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">🗺</span></div><span class="nav-lbl">Map</span></div>
+        <div class="nav-item" onclick="goScreen('explore',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">✦</span></div><span class="nav-lbl">Explore</span></div>
+        <div class="nav-item" onclick="goScreen('submit',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">⊕</span></div><span class="nav-lbl">Share</span></div>
+        <div class="nav-item" onclick="goScreen('profile',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">◉</span></div><span class="nav-lbl">Me</span></div>
+      </div>
+    </div>
+
+    <!-- ══ SUBMIT ══ -->
+    <div class="screen" id="s-submit">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="submit-hdr">
+        <div class="back-btn" onclick="goScreen('map',null)">← Cancel</div>
+        <div class="submit-ttl">Share your story</div>
+        <div class="submit-sub">Tie a moment to this place</div>
+      </div>
+      <div class="submit-scroll">
+        <div id="submit-err"></div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <div class="loc-box"><span>📍</span><input id="loc-input" style="flex:1;background:transparent;border:none;outline:none;font-family:'Outfit',sans-serif;font-size:14px;color:var(--ink)" value="Royce Hall, UCLA" placeholder="Where is this story?"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Story type</label>
+          <div class="type-toggle">
+            <div class="type-opt on" id="tt-text" onclick="switchType('text')">✍️ Text</div>
+            <div class="type-opt" id="tt-audio" onclick="switchType('audio')">🎙 Audio</div>
+          </div>
+        </div>
+        <div class="form-group" id="text-area-wrap">
+          <label class="form-label">Your story</label>
+          <textarea class="story-ta" id="story-ta" placeholder="Something happened here that changed how I see the world…" oninput="onText(this)" maxlength="500"></textarea>
+          <div class="char-row"><span class="char-cnt" id="char-cnt">0 / 500</span></div>
+          <div class="ai-suggest" id="ai-suggest" style="display:none">
+            <span style="font-size:18px;flex-shrink:0;margin-top:1px">✦</span>
+            <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5">
+              <div class="ai-lbl">AI Suggestion</div>
+              <strong id="ai-title" style="display:block;font-size:13px;color:var(--ink);margin-bottom:3px">Generating…</strong>
+              Suggested: <span id="ai-tags" style="color:var(--amber);font-weight:600"></span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="audio-area-wrap" style="display:none">
+          <label class="form-label">Record audio (max 1 min)</label>
+          <div style="background:var(--sand);border-radius:16px;padding:28px;text-align:center;border:1.5px dashed var(--sand-dark)">
+            <div style="font-size:44px;margin-bottom:8px">🎙</div>
+            <div style="font-size:14px;color:var(--muted);margin-bottom:18px">Tap to begin recording</div>
+            <div onclick="showToast('Recording started 🎙')" style="background:var(--amber);color:white;border-radius:12px;padding:12px 0;font-size:14px;font-weight:600;cursor:pointer">Start Recording</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags</label>
+          <div class="tag-grid">
+            <div class="tag-sel" onclick="toggleTag(this)">First-Gen</div>
+            <div class="tag-sel on" onclick="toggleTag(this)">Belonging</div>
+            <div class="tag-sel" onclick="toggleTag(this)">Migration</div>
+            <div class="tag-sel on" onclick="toggleTag(this)">Language</div>
+            <div class="tag-sel" onclick="toggleTag(this)">Culture</div>
+            <div class="tag-sel" onclick="toggleTag(this)">Disability</div>
+            <div class="tag-sel" onclick="toggleTag(this)">Socioeconomic</div>
+            <div class="tag-sel" onclick="toggleTag(this)">Resilience</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="anon-row">
+            <div><div class="anon-lbl">Post anonymously</div><div class="anon-sub">Your name won't appear</div></div>
+            <div class="sw-track on" id="anon-sw" onclick="toggleSw('anon-sw')"><div class="sw-thumb"></div></div>
+          </div>
+        </div>
+        <div style="height:8px"></div>
+      </div>
+      <div class="submit-foot">
+        <button class="submit-cta" id="submit-cta" onclick="submitStory()">Share Story →</button>
+      </div>
+      <div class="nav">
+        <div class="nav-item" onclick="goScreen('map',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">🗺</span></div><span class="nav-lbl">Map</span></div>
+        <div class="nav-item" onclick="goScreen('explore',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">✦</span></div><span class="nav-lbl">Explore</span></div>
+        <div class="nav-item on"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">⊕</span></div><span class="nav-lbl">Share</span></div>
+        <div class="nav-item" onclick="goScreen('profile',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">◉</span></div><span class="nav-lbl">Me</span></div>
+      </div>
+    </div>
+
+    <!-- ══ EXPLORE ══ -->
+    <div class="screen" id="s-explore">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="explore-hdr">
+        <div class="explore-ttl">Explore</div>
+        <div class="explore-sub">Voices from around you</div>
+      </div>
+      <div class="explore-chips" id="explore-chips">
+        <div class="chip on" onclick="exploreFilter('All',this)">All</div>
+        <div class="chip" onclick="exploreFilter('First-Gen',this)">First-Gen</div>
+        <div class="chip" onclick="exploreFilter('Migration',this)">Migration</div>
+        <div class="chip" onclick="exploreFilter('Language',this)">Language</div>
+        <div class="chip" onclick="exploreFilter('Belonging',this)">Belonging</div>
+        <div class="chip" onclick="exploreFilter('Culture',this)">Culture</div>
+      </div>
+      <div class="story-list" id="story-list"></div>
+      <div class="nav">
+        <div class="nav-item" onclick="goScreen('map',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">🗺</span></div><span class="nav-lbl">Map</span></div>
+        <div class="nav-item on"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">✦</span></div><span class="nav-lbl">Explore</span></div>
+        <div class="nav-item" onclick="goScreen('submit',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">⊕</span></div><span class="nav-lbl">Share</span></div>
+        <div class="nav-item" onclick="goScreen('profile',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">◉</span></div><span class="nav-lbl">Me</span></div>
+      </div>
+    </div>
+
+    <!-- ══ PROFILE ══ -->
+    <div class="screen" id="s-profile">
+      <div class="status"><span style="font-weight:700">9:41</span><div class="status-r"><span>●●●</span><span>WiFi</span><span style="font-size:14px">▊▊</span></div></div>
+      <div class="profile-scroll">
+        <div class="profile-hero">
+          <div class="profile-av" id="p-av">🌱</div>
+          <div class="profile-name" id="p-name">Loading…</div>
+          <div class="profile-sub" id="p-sub">UCLA</div>
+          <div class="stats-bar">
+            <div class="stat-cell"><div class="stat-n" id="p-stories">0</div><div class="stat-l">Stories</div></div>
+            <div class="stat-cell"><div class="stat-n" id="p-resonates">0</div><div class="stat-l">Resonates</div></div>
+            <div class="stat-cell"><div class="stat-n" id="p-replies">0</div><div class="stat-l">Replies</div></div>
+          </div>
+        </div>
+        <div class="psec">
+          <span class="section-lbl">My Stories</span>
+          <div id="my-stories-list"></div>
+        </div>
+        <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+      </div>
+      <div class="nav">
+        <div class="nav-item" onclick="goScreen('map',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">🗺</span></div><span class="nav-lbl">Map</span></div>
+        <div class="nav-item" onclick="goScreen('explore',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">✦</span></div><span class="nav-lbl">Explore</span></div>
+        <div class="nav-item" onclick="goScreen('submit',null)"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">⊕</span></div><span class="nav-lbl">Share</span></div>
+        <div class="nav-item on"><div class="nav-dot"></div><div class="nav-bubble"><span class="nav-ico">◉</span></div><span class="nav-lbl">Me</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   SUPABASE INIT
+════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://dfrlccjeywtecoadnglt.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmcmxjY2pleXd0ZWNvYWRuZ2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4OTE5ODksImV4cCI6MjA4NzQ2Nzk4OX0.JzRnxcwmpxmJ5Y64B-n-iIBukRWcIdvJ9KFaiqUQ_Jw';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+let currentScreen = 'auth';
+let prevScreen = 'map';
+let currentUser = null;
+let currentProfile = null;
+let allStories = [];
+let currentStoryId = null;
+let currentStoryData = null;
+let resonatedIds = new Set();
+let playing = false;
+let playTimer = null;
+let waveProgress = 12;
+let aiTimer = null;
+let exploreActiveFilter = 'All';
+
+const TAG_COLOR_MAP = {
+  'First-Gen':'tp-amber','Belonging':'tp-teal','Language':'tp-violet',
+  'Migration':'tp-gold','Culture':'tp-green','Disability':'tp-teal',
+  'Socioeconomic':'tp-gold','Resilience':'tp-amber'
+};
+
+const PIN_POSITIONS = [
+  {left:'58%',top:'50%'},{left:'28%',top:'63%'},{left:'78%',top:'36%'},
+  {left:'46%',top:'26%'},{left:'22%',top:'43%'},{left:'64%',top:'72%'},
+  {left:'36%',top:'80%'},{left:'82%',top:'60%'}
+];
+
+const WAVE_H = [4,9,15,7,21,25,18,11,27,23,17,9,20,29,22,15,7,17,25,21,12,5,11,18,23,17,9,14,7,13];
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+(async () => {
+  // Check existing session
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    goScreen('map', null);
+  }
+
+  // Ping DB
+  try {
+    const { error } = await sb.from('stories').select('id').limit(1);
+    setDbStatus(!error);
+  } catch { setDbStatus(false); }
+
+  // Listen for auth changes
+  sb.auth.onAuthStateChange(async (_e, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) { await loadProfile(); }
+  });
+
+  // Subscribe to realtime story inserts
+  sb.channel('stories-channel')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, payload => {
+      allStories.unshift(payload.new);
+      renderMapPins(allStories);
+      if (currentScreen === 'explore') renderExploreList(exploreActiveFilter);
+      showToast('New story just posted 🗺');
+    })
+    .subscribe();
+
+  buildWaveform();
+})();
+
+/* ════════════════════════════════════════════
+   DB STATUS
+════════════════════════════════════════════ */
+function setDbStatus(ok) {
+  document.getElementById('db-dot').className = 'dot' + (ok ? ' live' : '');
+  document.getElementById('db-label').textContent = ok ? 'Connected to Supabase' : 'DB offline — using mock';
+}
+
+/* ════════════════════════════════════════════
+   AUTH
+════════════════════════════════════════════ */
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  setAuthErr('');
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { setAuthErr(error.message); return; }
+  await loadProfile();
+  goScreen('map', null);
+}
+
+async function signUp() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  setAuthErr('');
+  const { error } = await sb.auth.signUp({ email, password: pass,
+    options: { data: { display_name: email.split('@')[0] } }
+  });
+  if (error) { setAuthErr(error.message); return; }
+  showToast('Account created! Check your email ✉️');
+  goScreen('map', null);
+}
+
+function continueAnon() {
+  goScreen('map', null);
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  goScreen('auth', null);
+}
+
+function setAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.innerHTML = msg ? `<div class="err-banner">${msg}</div>` : '';
+}
+
+async function loadProfile() {
+  if (!currentUser) return;
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = data;
+  if (data) {
+    document.getElementById('p-av').textContent = data.emoji || '🌱';
+    document.getElementById('p-name').textContent = data.display_name || currentUser.email.split('@')[0];
+    document.getElementById('p-sub').textContent = data.ucla_year || 'UCLA';
+    loadMyStories();
+  }
+}
+
+async function loadMyStories() {
+  if (!currentUser) return;
+  const { data } = await sb.from('stories').select('*').eq('author_id', currentUser.id).order('created_at', { ascending: false });
+  if (!data) return;
+  // Stats
+  const totalResonates = data.reduce((s,r) => s + (r.resonates||0), 0);
+  const totalReplies   = data.reduce((s,r) => s + (r.reply_count||0), 0);
+  document.getElementById('p-stories').textContent = data.length;
+  document.getElementById('p-resonates').textContent = totalResonates;
+  document.getElementById('p-replies').textContent = totalReplies;
+  // List
+  const el = document.getElementById('my-stories-list');
+  if (!data.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🌱</div><div class="empty-sub">You haven't shared any stories yet.</div></div>`;
+    return;
+  }
+  el.innerHTML = data.map(s => `
+    <div class="my-card" onclick="openStory('${s.id}')">
+      <div class="my-card-ttl">"${s.title}"</div>
+      <div class="my-card-loc">📍 ${s.location_name} · ${(s.tags||[]).join(', ')}</div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════
+   STORIES — LOAD
+════════════════════════════════════════════ */
+async function loadStories(tagFilter) {
+  document.getElementById('map-loading').style.display = 'flex';
+  let query = sb.from('stories').select('*').order('created_at', { ascending: false });
+  if (tagFilter && tagFilter !== 'All') query = query.contains('tags', [tagFilter]);
+  const { data, error } = await query;
+  document.getElementById('map-loading').style.display = 'none';
+  if (error || !data) { showToast('Could not load stories ⚠️'); return []; }
+  return data;
+}
+
+async function initMap() {
+  allStories = await loadStories('All');
+  renderMapPins(allStories);
+}
+
+function renderMapPins(stories) {
+  const container = document.getElementById('map-pins');
+  container.innerHTML = '';
+  stories.slice(0, 8).forEach((s, i) => {
+    const pos = PIN_POSITIONS[i % PIN_POSITIONS.length];
+    const tagColor = TAG_COLOR_MAP[s.tags?.[0]] || 'tp-amber';
+    const colorHex = tagColorHex(s.tags?.[0]);
+    const pin = document.createElement('div');
+    pin.className = 'pin';
+    pin.style.left = pos.left;
+    pin.style.top = pos.top;
+    pin.innerHTML = `
+      <div class="pin-card">
+        <div class="pin-cat" style="color:${colorHex}">${s.tags?.[0] || 'Story'}</div>
+        <div class="pin-snip">"${s.title.length > 36 ? s.title.slice(0,34)+'…' : s.title}"</div>
+      </div>
+      <div class="pin-stem" style="border-top:8px solid white"></div>
+      <div class="pin-dot" style="background:${colorHex}"></div>`;
+    pin.onclick = () => openStory(s.id);
+    container.appendChild(pin);
+  });
+}
+
+function tagColorHex(tag) {
+  const map = {'First-Gen':'#C86B2A','Belonging':'#3A7D6E','Language':'#6B5FA6','Migration':'#B8872A','Culture':'#4E8A5F','Disability':'#3A7D6E','Socioeconomic':'#B8872A','Resilience':'#C86B2A'};
+  return map[tag] || '#C86B2A';
+}
+
+/* ════════════════════════════════════════════
+   STORY VIEW
+════════════════════════════════════════════ */
+async function openStory(id) {
+  currentStoryId = id;
+  const { data: s, error } = await sb.from('stories').select('*').eq('id', id).single();
+  if (error || !s) { showToast('Could not load story ⚠️'); return; }
+  currentStoryData = s;
+
+  document.getElementById('sv-loc').textContent = s.location_name;
+  document.getElementById('sv-title').textContent = `"${s.title}"`;
+  document.getElementById('sv-author').textContent = s.is_anonymous ? 'Anonymous' : (s.author_name || 'Anonymous');
+  document.getElementById('sv-date').textContent = 'Shared ' + timeAgo(s.created_at);
+  document.getElementById('sv-av').textContent = s.emoji || '🌱';
+  document.getElementById('sv-resonates').textContent = `🫂 ${s.resonates || 0}`;
+  document.getElementById('sv-body').innerHTML = s.body.split('\n\n').map(p => `<p>${p}</p>`).join('');
+
+  // Tags
+  document.getElementById('sv-tags').innerHTML = (s.tags||[]).map(t =>
+    `<span class="tag-pill ${TAG_COLOR_MAP[t]||'tp-amber'}">${t}</span>`).join('');
+
+  // Audio
+  const ab = document.getElementById('sv-audio');
+  ab.style.display = s.audio_url ? 'flex' : 'none';
+
+  // Resonate state
+  const isResonated = resonatedIds.has(id);
+  const rb = document.getElementById('resonate-btn');
+  rb.className = 'react-btn' + (isResonated ? ' resonated' : '');
+  document.getElementById('resonate-lbl').textContent = isResonated ? 'Resonated!' : 'Resonate';
+
+  // Reset audio
+  playing = false; waveProgress = 12;
+  document.getElementById('play-btn').textContent = '▶';
+  clearInterval(playTimer); buildWaveform(); updateWave();
+
+  // Load replies
+  await loadReplies(id);
+
+  // Reply UI
+  const isAuthed = !!currentUser;
+  document.getElementById('reply-input-area').style.display = isAuthed ? 'block' : 'none';
+  document.getElementById('reply-auth-msg').style.display = isAuthed ? 'none' : 'block';
+
+  prevScreen = currentScreen;
+  goScreen('story', null);
+}
+
+async function loadReplies(storyId) {
+  const { data } = await sb.from('replies').select('*').eq('story_id', storyId).order('created_at', { ascending: true });
+  const count = data?.length || 0;
+  document.getElementById('reply-count').textContent = count;
+  const list = document.getElementById('reply-list');
+  if (!count) { list.innerHTML = `<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px 0">Be the first to reply</div>`; return; }
+  list.innerHTML = data.map(r => `
+    <div class="reply-card">
+      <div class="reply-meta">
+        <div class="reply-av">${r.emoji || '💬'}</div>
+        <span class="reply-author">${r.is_anonymous ? 'Anonymous' : (r.author_name || 'Anonymous')}</span>
+        <span class="reply-date">${timeAgo(r.created_at)}</span>
+      </div>
+      <div class="reply-body">"${r.body}"</div>
+    </div>`).join('');
+}
+
+async function toggleResonate() {
+  if (!currentUser) { showToast('Sign in to resonate 🔑'); return; }
+  const isResonated = resonatedIds.has(currentStoryId);
+  if (isResonated) {
+    await sb.from('resonates').delete().eq('story_id', currentStoryId).eq('user_id', currentUser.id);
+    resonatedIds.delete(currentStoryId);
+  } else {
+    await sb.from('resonates').insert({ story_id: currentStoryId, user_id: currentUser.id });
+    resonatedIds.add(currentStoryId);
+  }
+  // Refresh count
+  const { data } = await sb.from('stories').select('resonates').eq('id', currentStoryId).single();
+  document.getElementById('sv-resonates').textContent = `🫂 ${data?.resonates || 0}`;
+  const rb = document.getElementById('resonate-btn');
+  const nowResonated = resonatedIds.has(currentStoryId);
+  rb.className = 'react-btn' + (nowResonated ? ' resonated' : '');
+  document.getElementById('resonate-lbl').textContent = nowResonated ? 'Resonated!' : 'Resonate';
+  showToast(nowResonated ? 'Story resonated 🫂' : 'Resonate removed');
+}
+
+async function submitReply() {
+  if (!currentUser) { showToast('Sign in to reply 🔑'); return; }
+  const ta = document.getElementById('reply-ta');
+  const body = ta.value.trim();
+  if (!body) return;
+  const isAnon = document.getElementById('reply-anon-sw').classList.contains('on');
+  const { error } = await sb.from('replies').insert({
+    story_id: currentStoryId,
+    author_id: currentUser.id,
+    body,
+    is_anonymous: isAnon,
+    emoji: currentProfile?.emoji || '💬'
+  });
+  if (error) { showToast('Could not post reply ⚠️'); return; }
+  ta.value = '';
+  await loadReplies(currentStoryId);
+  showToast('Reply posted ✨');
+}
+
+/* ════════════════════════════════════════════
+   SUBMIT STORY
+════════════════════════════════════════════ */
+async function submitStory() {
+  if (!currentUser) { showToast('Sign in to share a story 🔑'); goScreen('auth',null); return; }
+  const body = document.getElementById('story-ta').value.trim();
+  const loc  = document.getElementById('loc-input').value.trim();
+  if (!body || body.length < 20) { setSubmitErr('Write at least 20 characters for your story.'); return; }
+  if (!loc) { setSubmitErr('Add a location.'); return; }
+
+  const tags = [...document.querySelectorAll('#s-submit .tag-sel.on')].map(el => el.textContent.trim());
+  const isAnon = document.getElementById('anon-sw').classList.contains('on');
+
+  // Generate a simple title from first sentence
+  const autoTitle = body.split(/[.!?]/)[0].trim().slice(0, 80) || 'A moment here';
+
+  const btn = document.getElementById('submit-cta');
+  btn.disabled = true; btn.textContent = 'Sharing…';
+  setSubmitErr('');
+
+  const { error } = await sb.from('stories').insert({
+    author_id: currentUser.id,
+    title: autoTitle,
+    body,
+    location_name: loc,
+    tags,
+    is_anonymous: isAnon,
+    emoji: currentProfile?.emoji || '🌱',
+    author_name: isAnon ? null : (currentProfile?.display_name || null)
+  });
+
+  btn.disabled = false;
+  if (error) { setSubmitErr(error.message); btn.textContent = 'Share Story →'; return; }
+
+  btn.textContent = '✓ Shared!'; btn.classList.add('done');
+  setTimeout(async () => {
+    btn.textContent = 'Share Story →'; btn.classList.remove('done');
+    document.getElementById('story-ta').value = '';
+    document.getElementById('char-cnt').textContent = '0 / 500';
+    document.getElementById('ai-suggest').style.display = 'none';
+    allStories = await loadStories('All');
+    renderMapPins(allStories);
+    goScreen('map', null);
+    showToast('Your story is live on the map 🗺');
+  }, 1400);
+}
+
+function setSubmitErr(msg) {
+  document.getElementById('submit-err').innerHTML = msg ? `<div class="err-banner">${msg}</div>` : '';
+}
+
+/* ════════════════════════════════════════════
+   EXPLORE
+════════════════════════════════════════════ */
+async function renderExploreList(filter) {
+  const list = document.getElementById('story-list');
+  list.innerHTML = skeletons(3);
+  const data = await loadStories(filter);
+  if (!data.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-ico">🔍</div><div class="empty-ttl">No stories yet</div><div class="empty-sub">Be the first to share a story with this tag.</div></div>`;
+    return;
+  }
+  list.innerHTML = data.map(s => `
+    <div class="s-card" onclick="openStory('${s.id}')">
+      <div class="card-loc"><span>📍</span>${s.location_name.split(',')[0]}</div>
+      <div class="card-ttl">"${s.title}"</div>
+      <div class="card-prev">${s.body.slice(0,120)}…</div>
+      <div class="card-foot">
+        <div class="card-tags">${(s.tags||[]).slice(0,2).map(t=>`<span class="tag-pill ${TAG_COLOR_MAP[t]||'tp-amber'}">${t}</span>`).join('')}</div>
+        <span class="card-time">${timeAgo(s.created_at)}</span>
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════
+   SCREEN MANAGER
+════════════════════════════════════════════ */
+function goScreen(name, btnEl) {
+  document.getElementById('s-' + currentScreen).classList.remove('active');
+  document.getElementById('s-' + name).classList.add('active');
+  currentScreen = name;
+
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('cur'));
+  if (btnEl) btnEl.classList.add('cur');
+  else document.querySelectorAll('.sb-btn').forEach(b => {
+    if (b.textContent.trim().toLowerCase().includes(name === 'story' ? 'explore' : name))
+      b.classList.add('cur');
+  });
+
+  if (name === 'map' && !allStories.length) initMap();
+  if (name === 'explore') renderExploreList(exploreActiveFilter);
+  if (name === 'profile') loadProfile();
+}
+
+function goBack() { goScreen(prevScreen || 'map', null); }
+
+/* ════════════════════════════════════════════
+   FILTERS
+════════════════════════════════════════════ */
+async function mapFilter(tag, el) {
+  document.querySelectorAll('#map-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  const data = await loadStories(tag);
+  renderMapPins(data);
+}
+
+function exploreFilter(tag, el) {
+  exploreActiveFilter = tag;
+  document.querySelectorAll('#explore-chips .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  renderExploreList(tag);
+}
+
+/* ════════════════════════════════════════════
+   SUBMIT UI HELPERS
+════════════════════════════════════════════ */
+function switchType(t) {
+  document.getElementById('tt-text').classList.toggle('on', t==='text');
+  document.getElementById('tt-audio').classList.toggle('on', t==='audio');
+  document.getElementById('text-area-wrap').style.display = t==='text' ? 'block' : 'none';
+  document.getElementById('audio-area-wrap').style.display = t==='audio' ? 'block' : 'none';
+}
+
+let aiTitles = [
+  '"The Weight of Carrying Home"','"Finding Ground in a Foreign Place"',
+  '"Between Two Languages"','"The Space Between Here and There"',
+  '"Something Like Belonging"'
+];
+function onText(el) {
+  const len = el.value.length;
+  const cc = document.getElementById('char-cnt');
+  cc.textContent = len + ' / 500';
+  cc.classList.toggle('warn', len > 430);
+  clearTimeout(aiTimer);
+  if (len > 40) {
+    aiTimer = setTimeout(() => {
+      const sug = document.getElementById('ai-suggest');
+      sug.style.display = 'flex';
+      document.getElementById('ai-title').textContent = aiTitles[Math.floor(Math.random()*aiTitles.length)];
+      const onTags = [...document.querySelectorAll('#s-submit .tag-sel.on')].map(e=>e.textContent.trim());
+      document.getElementById('ai-tags').textContent = onTags.join(' · ') || 'Belonging · Language';
+    }, 900);
+  } else {
+    document.getElementById('ai-suggest').style.display = 'none';
+  }
+}
+
+function toggleTag(el) { el.classList.toggle('on'); }
+function toggleSw(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('on'); el.classList.toggle('off');
+}
+
+/* ════════════════════════════════════════════
+   AUDIO PLAYER
+════════════════════════════════════════════ */
+function buildWaveform() {
+  const wf = document.getElementById('waveform');
+  if (!wf) return;
+  wf.innerHTML = '';
+  WAVE_H.forEach((h,i) => {
+    const b = document.createElement('div');
+    b.className = 'wbar ' + (i < waveProgress ? 'lit' : 'dim');
+    b.style.height = h + 'px';
+    wf.appendChild(b);
+  });
+}
+function updateWave() {
+  document.querySelectorAll('#waveform .wbar').forEach((b,i) => {
+    b.classList.toggle('lit', i < waveProgress);
+    b.classList.toggle('dim', i >= waveProgress);
+  });
+}
+function togglePlay() {
+  playing = !playing;
+  document.getElementById('play-btn').textContent = playing ? '⏸' : '▶';
+  if (playing) {
+    playTimer = setInterval(() => {
+      if (waveProgress < WAVE_H.length) { waveProgress++; updateWave(); }
+      else { playing = false; document.getElementById('play-btn').textContent = '▶'; clearInterval(playTimer); }
+    }, 180);
+  } else clearInterval(playTimer);
+}
+
+/* ════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════ */
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  if (s < 604800) return Math.floor(s/86400) + 'd ago';
+  return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+function skeletons(n) {
+  return Array(n).fill(0).map(()=>`
+    <div class="skel-card">
+      <div class="skel skel-line sm"></div>
+      <div class="skel skel-line lg"></div>
+      <div class="skel skel-line"></div>
+      <div class="skel skel-line sm"></div>
+    </div>`).join('');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+</script>
+</body>
+</html>
