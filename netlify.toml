@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  command = ""
+
+# Serve the app at the root URL
+[[redirects]]
+  from = "/"
+  to = "/voices-live.html"
+  status = 200
